@@ -156,11 +156,12 @@ export default class LibraryManager {
                     library
                 )}`
             );
-            const languageFileAsString =
-                await this.libraryStorage.getFileAsString(
-                    library,
-                    `language/${language}.json`
-                );
+
+            const languageFileAsString = await this.getLanguageFileAsString(
+                library,
+                language
+            );
+
             // If the implementation has specified one, we use a hook to alter
             // the language files to match the structure of the altered
             // semantics.
@@ -869,5 +870,74 @@ export default class LibraryManager {
             await this.libraryStorage.deleteLibrary(newLibraryMetadata);
             throw error;
         }
+    }
+
+    private async getLanguageFileAsString(
+        library: ILibraryName,
+        language: string
+    ): Promise<string> {
+        const languageFileFormats = [
+            language, // whatever format the cookie is in
+            (() => {
+                // xx_XX
+                const [languageCode, countryCode] = language
+                    .replace(`-`, `_`)
+                    .split(`_`);
+                if (!languageCode || !countryCode) return;
+                return `${languageCode.toLowerCase()}_${countryCode.toUpperCase()}`;
+            })(),
+            (() => {
+                // xx-XX
+                const [languageCode, countryCode] = language
+                    .replace(`_`, `-`)
+                    .split(`-`);
+                if (!languageCode || !countryCode) return;
+                return `${languageCode.toLowerCase()}-${countryCode.toUpperCase()}`;
+            })(),
+            (() => {
+                // xx_xx
+                const [languageCode, countryCode] = language
+                    .toLowerCase()
+                    .replace(`-`, `_`)
+                    .split(`_`);
+                if (!languageCode || !countryCode) return;
+                return `${languageCode}_${countryCode}`;
+            })(),
+            (() => {
+                // xx-xx
+                const [languageCode, countryCode] = language
+                    .toLowerCase()
+                    .replace(`_`, `-`)
+                    .split(`-`);
+                if (!languageCode || !countryCode) return;
+                return `${languageCode}-${countryCode}`;
+            })(),
+            (() => {
+                // xx
+                const [languageCode] = language.toLowerCase().split(/[_-]/);
+                if (!languageCode) return;
+                return `${languageCode}`;
+            })()
+        ].filter((fileFormat): fileFormat is string => !!fileFormat);
+
+        let languageFile = null;
+        for (const fileFormat of languageFileFormats) {
+            // eslint-disable-next-line no-await-in-loop
+            const fileExists = await this.libraryStorage.fileExists(
+                library,
+                `language/${fileFormat}.json`
+            );
+            if (fileExists) {
+                languageFile = `language/${fileFormat}.json`;
+                break;
+            }
+        }
+
+        const languageFileAsString = await this.libraryStorage.getFileAsString(
+            library,
+            languageFile
+        );
+
+        return languageFileAsString;
     }
 }
