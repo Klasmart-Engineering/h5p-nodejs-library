@@ -93,7 +93,19 @@ export default class H5PAjaxEndpoint {
                         'You must specify a user when calling getAjax(...).'
                     );
                 }
-                return this.h5pEditor.getContentTypeCache(user, language);
+                const contentTypeCache =
+                    await this.h5pEditor.getContentTypeCache(user, language);
+                // Filter out the original CoursePresentation content type
+                // since KidsLoop has its own version (CoursePresentationKID).
+                // AppearIn has copyright issues, so we're filtering that one
+                // out too.
+                // TODO: Do this in a cleaner way.
+                contentTypeCache.libraries = contentTypeCache.libraries.filter(
+                    (x) =>
+                        x.machineName !== 'H5P.CoursePresentation' &&
+                        x.machineName !== 'H5P.AppearIn'
+                );
+                return contentTypeCache;
             case 'content-hub-metadata-cache':
                 return new AjaxSuccessResponse(
                     await this.h5pEditor.contentHub.getMetadata(language)
