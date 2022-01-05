@@ -39,8 +39,8 @@ describe('Rendering the HTML page', () => {
                     <script>
                         window.H5PIntegration = {
                   "ajax":{
-                     "contentUserData":"/h5p/contentUserData",
-                     "setFinished":"/h5p/setFinished"
+                     "contentUserData":"",
+                     "setFinished":""
                   },
                   "ajaxPath":"/h5p/ajax?action=",
                   "contents": {
@@ -420,8 +420,8 @@ describe('Rendering the HTML page', () => {
                         <script>
                             window.H5PIntegration = {
                       "ajax":{
-                         "contentUserData":"/h5p/contentUserData",
-                         "setFinished":"/h5p/setFinished"
+                         "contentUserData":"",
+                         "setFinished":""
                        },
                       "ajaxPath":"/h5p/ajax?action=",
                       "contents": {
