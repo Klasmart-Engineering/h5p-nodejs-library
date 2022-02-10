@@ -34,7 +34,11 @@ export default class CachedLibraryStorage implements ILibraryStorage {
      * used; **IMPORTANT: The default in-memory cache does not with
      * multi-process or multi-machine setups!**
      */
-    constructor(protected storage: ILibraryStorage, protected cache?: Cache) {
+    constructor(
+        protected storage: ILibraryStorage,
+        protected cache?: Cache,
+        protected keyPrefix?: string
+    ) {
         if (!this.cache) {
             this.cache = caching({
                 store: 'memory',
@@ -42,6 +46,9 @@ export default class CachedLibraryStorage implements ILibraryStorage {
                 max: 2 ** 10
             });
         }
+        this.ADDONS_CACHE_KEY = keyPrefix + this.ADDONS_CACHE_KEY;
+        this.INSTALLED_LIBRARY_NAMES_CACHE_KEY =
+            keyPrefix + this.INSTALLED_LIBRARY_NAMES_CACHE_KEY;
     }
 
     private readonly ADDONS_CACHE_KEY: string = 'addons';
@@ -350,19 +357,21 @@ export default class CachedLibraryStorage implements ILibraryStorage {
         filename: string,
         usage: string
     ): string {
-        return `${LibraryName.toUberName(library)}/${filename}-${usage}`;
+        return `${this.keyPrefix}${LibraryName.toUberName(
+            library
+        )}/${filename}-${usage}`;
     }
 
     private getCacheKeyForLibraryListByMachineName(
         machineName: string
     ): string {
-        return `${this.INSTALLED_LIBRARY_NAMES_CACHE_KEY}-${machineName}`;
+        return `${this.keyPrefix}${this.INSTALLED_LIBRARY_NAMES_CACHE_KEY}-${machineName}`;
     }
 
     private getCacheKeyForMetadata(
         library: ILibraryName,
         usage: string
     ): string {
-        return `${LibraryName.toUberName(library)}-${usage}`;
+        return `${this.keyPrefix}${LibraryName.toUberName(library)}-${usage}`;
     }
 }
