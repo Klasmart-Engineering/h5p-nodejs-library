@@ -19,6 +19,7 @@ import generateFilename from './helpers/FilenameGenerator';
 import SemanticsEnforcer from './SemanticsEnforcer';
 
 const log = new Logger('ContentStorer');
+const PATH_FIX_REGEX: RegExp = new RegExp('^(../[^/]+/){1,}');
 
 /**
  * Contains logic to store content in permanent storage. Copies files from
@@ -41,8 +42,11 @@ export default class ContentStorer {
      * Saves content in the persistence system. Also copies over files from
      * temporary storage or from other content if the content was pasted from
      * there.
+     *
+     * Note: This method has side-effects on the parameters argument, meaning it
+     * mutates the object!
      * @param contentId the contentId (can be undefined if previously unsaved)
-     * @param parameters the parameters of teh content (= content.json)
+     * @param parameters the parameters of the content (= content.json)
      * @param metadata = content of h5p.json
      * @param mainLibraryName the library name
      * @param user the user who wants to save the file
@@ -326,12 +330,24 @@ export default class ContentStorer {
                 )
             );
 
+        const filePathToNewFilenameMap = new Map<string, string>();
         for (const reference of fileReferencesInParams) {
+            // Handling an H5P copy/paste bug where paths get prefixed with '../[contentId]/'
+            // https://github.com/h5p/h5p-php-library/commit/5b4b98d4a8c442ceb8bb12ef1c709370ee12a292
+            // images/abcd.png -> images/abcd.png
+            // ../1234/images/abcd.png -> images/abcd.png
+            // ../1234/../5678/images/abcd.png -> images/abcd.png
+            reference.filePath = reference.filePath.replace(PATH_FIX_REGEX, '');
             const filepath = path.join(
                 packageDirectory,
                 'content',
                 reference.filePath
             );
+            let newFilename = filePathToNewFilenameMap.get(filepath);
+            if (newFilename) {
+                reference.context.params.path = `${newFilename}#tmp`;
+                continue;
+            }
             // If the file referenced in the parameters isn't included in the
             // package, we first check if the path is actually a URL and if not,
             // we delete the reference.
@@ -347,12 +363,13 @@ export default class ContentStorer {
                 continue;
             }
             const readStream = fsExtra.createReadStream(filepath);
-            const newFilename = await this.temporaryFileManager.addFile(
+            newFilename = await this.temporaryFileManager.addFile(
                 reference.filePath,
                 readStream,
                 user
             );
             reference.context.params.path = `${newFilename}#tmp`;
+            filePathToNewFilenameMap.set(filepath, newFilename);
         }
         return { metadata, parameters };
     }
@@ -642,6 +659,7 @@ export default class ContentStorer {
         oldFiles: string[]
     ): Promise<IFileReference[]> {
         const filesToCopyFromTemporaryStorage: IFileReference[] = [];
+        const hashSet = new Set<string>();
 
         for (const ref of fileReferencesInNewParams) {
             // We mark the file to be copied over from temporary storage if the
@@ -650,11 +668,15 @@ export default class ContentStorer {
                 // We only save temporary file for later copying, however, if
                 // the there isn't already a file with the exact name. This
                 // might be the case if the user presses "save" twice.
-                if (!oldFiles.some((f) => f === ref.filePath)) {
+                if (
+                    !hashSet.has(ref.filePath) &&
+                    !oldFiles.some((f) => f === ref.filePath)
+                ) {
                     filesToCopyFromTemporaryStorage.push(ref);
                 }
                 // remove temporary file marker from parameters
                 ref.context.params.path = ref.filePath;
+                hashSet.add(ref.filePath);
             }
         }
         return filesToCopyFromTemporaryStorage;
