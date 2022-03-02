@@ -19,6 +19,7 @@ import generateFilename from './helpers/FilenameGenerator';
 import SemanticsEnforcer from './SemanticsEnforcer';
 
 const log = new Logger('ContentStorer');
+const PATH_FIX_REGEX: RegExp = new RegExp('^(../[^/]+/){1,}');
 
 /**
  * Contains logic to store content in permanent storage. Copies files from
@@ -331,6 +332,12 @@ export default class ContentStorer {
 
         const filePathToNewFilenameMap = new Map<string, string>();
         for (const reference of fileReferencesInParams) {
+            // Handling an H5P copy/paste bug where paths get prefixed with '../[contentId]/'
+            // https://github.com/h5p/h5p-php-library/commit/5b4b98d4a8c442ceb8bb12ef1c709370ee12a292
+            // images/abcd.png -> images/abcd.png
+            // ../1234/images/abcd.png -> images/abcd.png
+            // ../1234/../5678/images/abcd.png -> images/abcd.png
+            reference.filePath = reference.filePath.replace(PATH_FIX_REGEX, '');
             const filepath = path.join(
                 packageDirectory,
                 'content',
